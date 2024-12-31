@@ -11,21 +11,28 @@ template<class Key, class Value> class Page{
 public:
     virtual Value* getValue(Key key) = 0;
     virtual Key firstKey() = 0;
+    virtual Key secondKey() = 0;
     virtual Page* firstPage() = 0;
     virtual Page* lastPage() = 0;
+    virtual Page* nextPageOf(Page* page) = 0;
+    virtual Page* prevPageOf(Page* page) = 0;
+
     virtual void add(Key key, Value value) = 0;
     virtual void add(Key key, Page* page) = 0;
     virtual bool isExternal() = 0;
     virtual Page* next(Key key) = 0;
     virtual bool isFull() = 0;
     virtual Page* split() = 0;
-    virtual Page* nextPage() = 0;
-    virtual Page* prevPage() = 0;
     virtual Page* merge(Page* page) = 0;
     virtual void remove(Key key) = 0;
+    virtual void replaceKey(Key oldKey, Key newKey) = 0;
     virtual void printKeys() = 0;
+    virtual void print() = 0;
     virtual unsigned int count() = 0;
     virtual void detach() = 0;
+
+    virtual void save(const std::string& filename) = 0;
+    virtual void open(const std::string& filename) = 0;
     virtual ~Page() {};
 };
 
@@ -35,8 +42,6 @@ private:
     std::map<Key, TreePage*>* pages;
     std::map<Key, Value>* items;
     unsigned int order;
-    TreePage* _nextPage;
-    TreePage* _prevPage;
 
     friend class Btree<Key, Value>;
 
@@ -52,23 +57,55 @@ public:
     }
     //void close();
 
-    void printKeys(){
+    void print(){
         if (this->bottom) {
+            std::cout << "{";
             for(typename std::map<Key, Value>::iterator it = this->items->begin(); it != this->items->end(); it++){
                 std::cout << it->first << ", ";
             }
-            std::cout << std::endl;
+            std::cout << "}" << std::endl;
         } else {
+            std::cout << "[";
             for(typename std::map<Key, TreePage*>::iterator it = this->pages->begin(); it != this->pages->end(); it++){
                 std::cout << it->first << ", ";
             }
-            std::cout << std::endl;
+            std::cout << "]" << std::endl;
+        }        
+    }
+
+    void printKeys(){
+        if (this->bottom) {
+            std::cout << "{";
+            for(typename std::map<Key, Value>::iterator it = this->items->begin(); it != this->items->end(); it++){
+                std::cout << it->first << ", ";
+            }
+            std::cout << "}";
+        } else {
+            std::cout << "[";
+            for(typename std::map<Key, TreePage*>::iterator it = this->pages->begin(); it != this->pages->end(); it++){
+                std::cout << it->first << ", ";
+                it->second->printKeys();
+            }
+            std::cout << "]";
         }
+    }
+
+    void save(const std::string& filename){
+
+    }
+
+    void open(const std::string& filename){
+
     }
 
     Value* getValue(Key key){
         assert(this->isExternal());
-        return &(*this->items)[key];
+        if (this->items->find(key) != this->items->end()) {
+            Value* value = &(*this->items)[key];
+            return value;
+        } else {
+            return NULL;
+        }
     }
 
     Key firstKey(){
@@ -76,6 +113,14 @@ public:
             return this->items->begin()->first;
         } else {
             return this->pages->begin()->first;
+        }
+    }
+
+    Key secondKey() {
+        if (this->bottom) {
+            return (++this->items->begin())->first;
+        } else {
+            return (++this->pages->begin())->first;
         }
     }
 
@@ -156,7 +201,7 @@ public:
             int half = this->items->size() / 2;
             typename std::map<Key, Value>::iterator it = this->items->begin();
             std::advance(it, half);
-            for (int i = 0; i < half; i++) {
+            while (it != this->items->end()) {
                 page->add(it->first, it->second);
                 it = this->items->erase(it);
             }
@@ -164,25 +209,32 @@ public:
             int half = this->pages->size() / 2;
             typename std::map<Key, TreePage*>::iterator it = this->pages->begin();
             std::advance(it, half);
-            for (int i = 0; i < half; i++) {
+            while (it != this->pages->end()) {
                 page->add(it->first, it->second);
                 it = this->pages->erase(it);
             }
-            ((TreePage*)this->lastPage())->_nextPage = NULL;
-            ((TreePage*)page->firstPage())->_prevPage = NULL;
         }
-
-        this->_nextPage = page;
-        page->_prevPage = this;
         return page;
     }
 
-    TreePage* nextPage() {
-        return this->_nextPage;
+    TreePage* nextPageOf(Page<Key, Value>* page) {
+        assert(!this->bottom);
+        typename std::map<Key, TreePage*>::iterator it = ++this->pages->find(page->firstKey());
+        if(it != this->pages->end()){
+            return it->second;
+        } else {
+            return NULL;
+        }
     }
 
-    TreePage* prevPage() {
-        return this->_prevPage;
+    TreePage* prevPageOf(Page<Key, Value>* page) {    
+        assert(!this->bottom);
+        typename std::map<Key, TreePage*>::iterator it = this->pages->find(page->firstKey());
+        if(it != this->pages->begin()){
+            return (--it)->second;
+        } else {
+            return NULL;
+        }
     }
 
     unsigned int count(){
@@ -194,9 +246,6 @@ public:
     }
 
     void detach(){
-        this->_nextPage = NULL;
-        this->_prevPage = NULL;
-
         if (this->bottom) {
             this->items = NULL;
         } else {
@@ -214,10 +263,8 @@ public:
             for(typename std::map<Key, TreePage*>::iterator it = treePage->pages->begin(); it != treePage->pages->end(); it++){
                 this->pages->insert(*it);
             }
+
         }
-        this->_nextPage = treePage->_nextPage;
-        if(this->_nextPage != NULL)
-            this->_nextPage->_prevPage = this;
 
         treePage->detach();
 
@@ -230,12 +277,21 @@ public:
         } else {
             TreePage* page = this->pages->operator[](key);
             if(page != NULL){
-                if(page->_prevPage != NULL)
-                    page->_prevPage->_nextPage = page->_nextPage;
-                if(page->_nextPage != NULL)
-                    page->_nextPage->_prevPage = page->_prevPage;
-
                 this->pages->erase(key);
+            }
+        }
+    }
+
+    void replaceKey(Key oldKey, Key newKey){
+        if (this->bottom) {
+            Value value = this->items->operator[](oldKey);
+            this->items->erase(oldKey);
+            this->items->insert(std::pair<Key, Value>(newKey, value));
+        } else {
+            TreePage* page = this->pages->operator[](oldKey);
+            if(page != NULL){
+                this->pages->erase(oldKey);
+                this->pages->insert(std::pair<Key, TreePage*>(newKey, page));
             }
         }
     }
@@ -261,8 +317,6 @@ private:
     Key* keys;
     Value* values;
     FlatPage** pages;
-    FlatPage* _nextPage;
-    FlatPage* _prevPage;
 
     unsigned int size;
     unsigned int order;
@@ -270,65 +324,83 @@ private:
     bool loaded;
     friend class Btree<Key, Value>;
 public:
-    FlatPage(std::string& filename){
+    FlatPage(const std::string& filename, int order){
         this->open(filename);
+        this->order = order;
     }
 
     FlatPage(int order, bool bottom){
         this->order = order;
         this->bottom = bottom;
         this->size = 0;
-        this->keys = new Key[order];
+        this->keys = new Key[2*order];
         if(!bottom){
-            this->pages = new FlatPage*[order];
+            this->pages = new FlatPage*[2*order];
         } else {
-            this->values = new Value[order];
+            this->values = new Value[2*order];
         }
         this->loaded = true;
     }
 
-    /*void save(std::string& filename){
+    void save(const std::string& filename){
         std::ofstream file;
         file.open(filename + ".idx");
-        file.write(this->bottom ? "1" : "0", 1);
-        file.write(this->size, sizeof(int));
-        file.write(this->order, sizeof(int));
+
         //copy using memcopy
         file.write((char*)this->keys, this->size * sizeof(Key));
         if(this->bottom){
             file.write((char*)this->values, this->size * sizeof(Value));
         } else {
             for(int i=0; i<this->size; i++){
-                this->pages[i]->save(filename + std::to_string(i));
+                this->pages[i]->save(filename + "_" + std::to_string(i));
             }
         }
     }
 
-    void open(std::string& filename){
+    void open(const std::string& filename){
         std::ifstream file;
-        file.open(filename);
-        char bottom;
-        file.read(&bottom, 1);
-        this->bottom = bottom == '1';
-        file.read(this->size, sizeof(int));
-        file.read(this->order, sizeof(int));
+        file.open(filename + ".idx");
+
         //copy using memcopy
-        file.read((char*)this->keys, this->size * sizeof(Key));
+        this->keys = new Key[2*this->order];
+        file.read((char*)this->keys, this->order * sizeof(Key));
+        
+        // Determine the actual size of the array based on bytes read
+        std::streamsize bytesRead = file.gcount();
+        this->size = bytesRead / sizeof(Key);
+        
         if(this->bottom){
+            this->values = new Value[2*this->order];
             file.read((char*)this->values, this->size * sizeof(Value));
         } else {
+            this->pages = new FlatPage*[2*this->order];
             for(int i=0; i<this->size; i++){
-                this->pages[i] = new FlatPage(filename + std::to_string(i));
+                this->pages[i] = new FlatPage(filename + "_" + std::to_string(i), this->order);
             }
         }
         this->loaded = true;
-    }*/
+    }
+
+    void print(){
+        this->printKeys();
+        std::cout << std::endl;
+    }
 
     void printKeys(){
-        for(int i=0; i<this->size; i++){
-            std::cout << this->keys[i] << ", ";
+        if(this->bottom){
+            std::cout << "{";
+            for(int i=0; i<this->size; i++){
+                std::cout << this->keys[i] << "=>" << this->values[i] << ", ";
+            }
+            std::cout << "}";
+        } else {
+            std::cout << "[";
+            for(int i=0; i<this->size; i++){
+                std::cout << this->keys[i]  << ", ";
+                this->pages[i]->printKeys();
+            }
+            std::cout << "]";
         }
-        std::cout << std::endl;
     }
 
     bool isExternal(){
@@ -430,30 +502,58 @@ public:
 
     FlatPage* split(){
         FlatPage* page = new FlatPage(this->order, this->bottom);
+        int half = this->size / 2 + (this->size % 2);
+        int otherHalf = this->size - half;
+        memcpy(page->keys, this->keys + half, otherHalf * sizeof(Key));
+        this->size = half;
+        page->size = otherHalf;
         if( this->bottom) {
-            int half = this->size / 2;
-            memcpy(page->keys, this->keys + half, half * sizeof(Key));
-            memcpy(page->values, this->values + half, half * sizeof(Value));
-            this->size = half;
-            page->size = half;
+            memcpy(page->values, this->values + half, otherHalf * sizeof(Value));
         } else {
-            int half = this->size / 2;
-            memcpy(page->keys, this->keys + half, half * sizeof(Key));
             memcpy(page->pages, this->pages + half, half * sizeof(FlatPage*));
-            this->size = half;
-            page->size = half;
         }
-        this->_nextPage = page;
-        page->_prevPage = this;
+
         return page;
     }
 
-    FlatPage* nextPage() {
-        return this->_nextPage;
+    FlatPage* nextPageOf(Page<Key, Value>* page) {
+        assert(!this->bottom);
+        Key key = page->firstKey();
+        int first = 0;
+        int last = this->size - 1;
+        while(first <= last){
+            int mid = first + (last - first) / 2;
+            if (this->keys[mid] == key) {
+                if(mid + 1 < this->size)
+                return this->pages[mid+1];
+            }
+            if (this->keys[mid] < key) {
+                first = mid + 1;
+            } else {
+                last = mid - 1;
+            }
+        }
+        return NULL;
     }
 
-    FlatPage* prevPage() {
-        return this->_prevPage;
+    FlatPage* prevPageOf(Page<Key, Value>* page) {
+        assert(!this->bottom);
+        Key key = page->firstKey();
+        int first = 0;
+        int last = this->size - 1;
+        while(first <= last){
+            int mid = first + (last - first) / 2;
+            if (this->keys[mid] == key) {
+                if(mid - 1 >= 0)
+                return this->pages[mid-1];
+            }
+            if (this->keys[mid] < key) {
+                first = mid + 1;
+            } else {
+                last = mid - 1;
+            }
+        }
+        return NULL;
     }
 
     unsigned int count(){
@@ -471,12 +571,8 @@ public:
             memcpy(this->pages + this->size, flatPage->pages, flatPage->size * sizeof(FlatPage*));
             this->size += flatPage->size;
         }
-        this->_nextPage = flatPage->_nextPage;
-        if(flatPage->_nextPage != NULL)
-            flatPage->_nextPage->_prevPage = this;
 
         flatPage->detach();
-        delete flatPage;
         
         return this;
     }
@@ -505,6 +601,9 @@ public:
             while(first <= last){
                 int mid = first + (last - first) / 2;
                 if (this->keys[mid] == key) {
+                    FlatPage* page = this->pages[mid];
+
+                    //erase
                     memmove(this->keys + mid, this->keys + mid + 1, (this->size - mid - 1) * sizeof(Key));
                     memmove(this->pages + mid, this->pages + mid + 1, (this->size - mid - 1) * sizeof(FlatPage*));
                     this->size--;
@@ -519,9 +618,31 @@ public:
         }
     }
 
+    void replaceKey(Key oldKey, Key newKey){
+        int first = 0;
+        int last = this->size - 1;
+        while(first <= last){
+            int mid = first + (last - first) / 2;
+            if (this->keys[mid] == oldKey) {
+                this->keys[mid] = newKey;
+                return;
+            }
+            if (this->keys[mid] < oldKey) {
+                first = mid + 1;
+            } else {
+                last = mid - 1;
+            }
+        }
+
+    }
+
 
     Key firstKey(){
         return this->keys[0];
+    }
+
+    Key secondKey(){
+        return this->keys[1];
     }
 
     Page<Key, Value>* firstPage(){
@@ -564,10 +685,9 @@ public:
     }
 
     void detach(){
-        this->_nextPage = NULL;
-        this->_prevPage = NULL;
         if (this->bottom) {
             this->values = NULL;
+            this->keys = NULL;
         } else {
             this->pages = NULL;
         }
@@ -579,9 +699,10 @@ public:
         if(this->bottom){
             delete[] this->values;
         } else {
-            for(int i=0; i<this->size; i++){
-                delete this->pages[i];
-            }
+            if(this->pages != NULL)
+                for(int i=0; i<this->size; i++){
+                    delete this->pages[i];
+                }
             delete[] this->pages;
         }
     }
@@ -603,6 +724,19 @@ public:
         this->root = newPage(true);
         this->root->add(sentinel, sentinelValue);
         this->height = 1;
+    }
+
+    Btree(std::string name){
+        this->memoryOnly = false;
+        std::ifstream file;
+        file.open(name + ".idx.meta");
+        file >> this->order;
+        file >> this->height;
+        file >> this->n;
+        file.close();
+
+        this->root = newPage(true);
+        this->root->open(name);
     }
 
     Page<Key, Value>* newPage(bool bottom){
@@ -671,11 +805,19 @@ public:
         }
 
         Page<Key, Value>* next = page->next(key);
+        Key nextPageKey = next->firstKey();
+
         this->deleteKey(next, key);
+        if(key == nextPageKey){
+            page->replaceKey(key, next->firstKey());
+            nextPageKey = next->firstKey();
+        }
         if (next->count() < this->order/2){
-            Page<Key, Value>* prev = next->prevPage();
-            if( prev != NULL) {
-                page->remove(next->firstKey());
+            //find the previous page
+            Page<Key, Value>* prev = page->prevPageOf(next);
+
+            if(prev != NULL){
+                page->remove(nextPageKey);
                 prev->merge(next);
                 delete next;
 
@@ -684,8 +826,9 @@ public:
                     page->add(split_page->firstKey(), split_page);
                 }
             } else {
-                Page<Key, Value>* next_next = next->nextPage();
-                if (next_next != NULL) {
+                //find the next page
+                Page<Key, Value>* next_next = page->nextPageOf(next);
+                if (next_next != NULL){
                     page->remove(next_next->firstKey());
                     next->merge(next_next);
                     delete next_next;
@@ -701,8 +844,15 @@ public:
         }
     }
 
-    void save(){
-        this->root->save("btree");
+    void save(std::string name){
+        std::ofstream file;
+        file.open(name + ".idx.meta");
+        file << this->order << std::endl;
+        file << this->height << std::endl;
+        file << this->n << std::endl;
+        file.close();
+
+        this->root->save(name);
     }
 
     unsigned int count(){
@@ -713,9 +863,15 @@ public:
         return this->height;
     }
 
+    virtual void print(){
+        this->root->printKeys();
+        std::cout << std::endl;
+    }
+
 
     ~Btree(){
         //Delete the root page
         delete this->root;
     }
 };
+
