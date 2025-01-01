@@ -321,12 +321,12 @@ private:
     unsigned int size;
     unsigned int order;
     bool bottom;
-    bool loaded;
+    bool *loaded;
     friend class Btree<Key, Value>;
 public:
     FlatPage(const std::string& filename, int order){
-        this->open(filename);
         this->order = order;
+        this->open(filename);
     }
 
     FlatPage(int order, bool bottom){
@@ -339,13 +339,16 @@ public:
         } else {
             this->values = new Value[2*order];
         }
-        this->loaded = true;
     }
 
     void save(const std::string& filename){
         std::ofstream file;
-        file.open(filename + ".idx");
-
+        if(this->bottom){
+            file.open(filename + ".values.idx");
+        } else {
+            file.open(filename + ".idx");
+        }
+        file.write((char*)&this->size, sizeof(this->size));
         //copy using memcopy
         file.write((char*)this->keys, this->size * sizeof(Key));
         if(this->bottom){
@@ -358,16 +361,28 @@ public:
     }
 
     void open(const std::string& filename){
+        this->bottom = false;
         std::ifstream file;
         file.open(filename + ".idx");
+        if(!file.is_open()){
+            file.close();
+            file.open(filename + ".values.idx");
+            this->bottom = true;
+            if(!file.is_open()){
+                std::cout << "Error: File not found" << std::endl;
+                assert(false);
+            }
+        }
+
+        file.read((char*)&this->size, sizeof(this->size));
 
         //copy using memcopy
         this->keys = new Key[2*this->order];
-        file.read((char*)this->keys, this->order * sizeof(Key));
+        file.read((char*)this->keys, this->size * sizeof(Key));
         
         // Determine the actual size of the array based on bytes read
-        std::streamsize bytesRead = file.gcount();
-        this->size = bytesRead / sizeof(Key);
+        //std::streamsize bytesRead = file.gcount();
+        //this->size = bytesRead / sizeof(Key);
         
         if(this->bottom){
             this->values = new Value[2*this->order];
@@ -378,12 +393,24 @@ public:
                 this->pages[i] = new FlatPage(filename + "_" + std::to_string(i), this->order);
             }
         }
-        this->loaded = true;
     }
 
     void print(){
-        this->printKeys();
-        std::cout << std::endl;
+        if(this->bottom){
+            std::cout << "{";
+            for(int i=0; i<this->size; i++){
+                std::cout << this->keys[i] << "=>" << this->values[i] << ", ";
+            }
+            std::cout << "}";
+        } else {
+            std::cout << "[";
+            for(int i=0; i<this->size; i++){
+                std::cout << this->keys[i]  << ", ";
+                this->pages[i]->print();
+            }
+            std::cout << "]";
+        }
+        std::cout.flush();
     }
 
     void printKeys(){
@@ -397,10 +424,10 @@ public:
             std::cout << "[";
             for(int i=0; i<this->size; i++){
                 std::cout << this->keys[i]  << ", ";
-                this->pages[i]->printKeys();
             }
             std::cout << "]";
         }
+        std::cout << std::endl;
     }
 
     bool isExternal(){
@@ -657,33 +684,6 @@ public:
         return this->size >= this->order;
     }
 
-    //Write page to disk
-    void close(){
-        //Write the page to disk
-        std::ofstream file;
-        file.open("page.txt");
-        //copy using memcopy
-        file.write((char*)this->keys, this->size * sizeof(Key));
-        if(this->bottom){
-            file.write((char*)this->values, this->size * sizeof(Value));
-        } else {
-            file.write((char*)this->pages, this->size * sizeof(FlatPage*));
-        }
-    }
-
-    void open(){
-        //Read the page from disk
-        std::ifstream file;
-        file.open("page.txt");
-        //copy using memcopy
-        file.read((char*)this->keys, this->size * sizeof(Key));
-        if(this->bottom){
-            file.read((char*)this->values, this->size * sizeof(Value));
-        } else {
-            file.read((char*)this->pages, this->size * sizeof(FlatPage*));
-        }
-    }
-
     void detach(){
         if (this->bottom) {
             this->values = NULL;
@@ -691,7 +691,6 @@ public:
         } else {
             this->pages = NULL;
         }
-        this->loaded = false;
     }
 
     ~FlatPage(){
@@ -864,7 +863,7 @@ public:
     }
 
     virtual void print(){
-        this->root->printKeys();
+        this->root->print();
         std::cout << std::endl;
     }
 
