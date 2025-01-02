@@ -14,7 +14,7 @@ int main(int argc, char* argv[]){
 
 	std::cout << "Random insertions and deletions test" << std::endl;
 	int* randoms = new int[end];
-	Btree<int, int> btree(4000, std::numeric_limits<int>::min(), std::numeric_limits<int>::min());
+	Btree<int, int> btree(4, std::numeric_limits<int>::min(), std::numeric_limits<int>::min());
 
 	for(int i=0; i<end; i++){
 		do {

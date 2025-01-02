@@ -32,7 +32,7 @@ public:
     virtual void detach() = 0;
 
     virtual void save(const std::string& filename) = 0;
-    virtual void open(const std::string& filename) = 0;
+    virtual void open(const std::string& filename, bool fullLoad = false) = 0;
     virtual ~Page() {};
 };
 
@@ -94,7 +94,7 @@ public:
 
     }
 
-    void open(const std::string& filename){
+    void open(const std::string& filename, bool fullLoad = false){
 
     }
 
@@ -322,11 +322,12 @@ private:
     unsigned int order;
     bool bottom;
     bool *loaded;
+    std::string filename;
     friend class Btree<Key, Value>;
 public:
-    FlatPage(const std::string& filename, int order){
+    FlatPage(const std::string& filename, int order, bool fullLoad = true){
         this->order = order;
-        this->open(filename);
+        this->open(filename, fullLoad);
     }
 
     FlatPage(int order, bool bottom){
@@ -334,6 +335,8 @@ public:
         this->bottom = bottom;
         this->size = 0;
         this->keys = new Key[2*order];
+        this->loaded = new bool[2*order];
+
         if(!bottom){
             this->pages = new FlatPage*[2*order];
         } else {
@@ -360,7 +363,9 @@ public:
         }
     }
 
-    void open(const std::string& filename){
+    void open(const std::string& filename, bool fullLoad = false){
+        std::cout << "Opening:" << filename << std::endl;
+        this->filename = filename;
         this->bottom = false;
         std::ifstream file;
         file.open(filename + ".idx");
@@ -380,10 +385,9 @@ public:
         this->keys = new Key[2*this->order];
         file.read((char*)this->keys, this->size * sizeof(Key));
         
-        // Determine the actual size of the array based on bytes read
-        //std::streamsize bytesRead = file.gcount();
-        //this->size = bytesRead / sizeof(Key);
-        
+        this->loaded = new bool[2*this->order];
+        if(!fullLoad)
+            return;
         if(this->bottom){
             this->values = new Value[2*this->order];
             file.read((char*)this->values, this->size * sizeof(Value));
@@ -391,6 +395,7 @@ public:
             this->pages = new FlatPage*[2*this->order];
             for(int i=0; i<this->size; i++){
                 this->pages[i] = new FlatPage(filename + "_" + std::to_string(i), this->order);
+                this->loaded[i] = true;
             }
         }
     }
@@ -486,6 +491,10 @@ public:
             int mid = first + (last - first) / 2;
             if (this->keys[mid] == key) {
                 this->pages[mid] = (FlatPage<Key, Value>*)page;
+                this->loaded[mid] = true;
+                if(!this->filename.empty()){
+                    page->save(this->filename + "_" + std::to_string(mid));
+                }
                 return;
             }
             if (this->keys[mid] < key) {
@@ -498,8 +507,14 @@ public:
         //Shift the keys and values to the right using memcopy
         memmove(this->keys + first + 1, this->keys + first, (this->size - first) * sizeof(Key));
         memmove(this->pages + first + 1, this->pages + first, (this->size - first) * sizeof(FlatPage*));
+        memmove(this->loaded + first + 1, this->loaded + first, (this->size - first) * sizeof(bool));
         this->keys[first] = key;
         this->pages[first] = (FlatPage<Key, Value>*)page;
+        this->loaded[first] = true;
+        if(!this->filename.empty()){
+            page->save(this->filename + "_" + std::to_string(first));
+        }
+        
         this->size++;
     }
 
@@ -513,7 +528,13 @@ public:
         while(first <= last){
             int mid = first + (last - first) / 2;
             if (this->keys[mid] == key) {
-                return this->pages[mid];
+                if(this->loaded[mid]){
+                    return this->pages[mid];
+                } else {
+                    this->pages[mid]->open(this->filename + "_" + std::to_string(mid), true);
+                    this->loaded[mid] = true;
+                    return this->pages[mid];
+                }
             }
             if (this->keys[mid] < key) {
                 first = mid + 1;
@@ -686,10 +707,23 @@ public:
 
     void detach(){
         if (this->bottom) {
+            // Delete the corresponding page file from the filesystem
+            if (std::remove((this->filename + ".values.idx").c_str()) != 0) {
+                std::cerr << "Error deleting file:" << this->filename + ".values.idx" << std::endl;
+            } else {
+                std::cout << this->filename << ".values.idx file deleted successfully" << std::endl;
+            }
+           
             this->values = NULL;
             this->keys = NULL;
         } else {
             this->pages = NULL;
+            // Delete the corresponding page file from the filesystem
+            if (std::remove((this->filename + ".idx").c_str()) != 0) {
+                std::cerr << "Error deleting file:" << this->filename + ".idx" << std::endl;
+            } else {
+                std::cout << ".idx file deleted successfully" << std::endl;
+            }
         }
     }
 
@@ -735,7 +769,7 @@ public:
         file.close();
 
         this->root = newPage(true);
-        this->root->open(name);
+        this->root->open(name, true);
     }
 
     Page<Key, Value>* newPage(bool bottom){
