@@ -157,6 +157,30 @@ public:
         }
         return NULL;
     }
+
+    int getIndexOf(Key key){
+        int first = 0;
+        int last = this->size - 1;
+        int mid = first;
+        while(first <= last){
+            mid = first + (last - first) / 2;
+            if (this->keys[mid] == key) {
+                return mid;
+            }
+            if (this->keys[mid] < key) {
+                first = mid + 1;
+            } else {
+                last = mid - 1;
+            }
+        }
+        return mid;
+    }
+
+    Value* getValueAt(int index){
+        assert(this->isExternal());
+        return &this->values[index];
+    }
+
     void add(Key key, Value value){
         assert(this->isExternal());
         //Find the index of the key

@@ -8,7 +8,7 @@
 
 
 TEST(Iterator, isEnd){
-    std::deque<FlatPage<int, int>*> q;
+    std::vector<FlatPage<int, int>*> q;
     FlatPage<int, int>* p = new FlatPage<int, int>(10, true);
     for(int i=0; i<10; i++){
         p->add(i, i);
@@ -31,10 +31,13 @@ TEST(Iterator, isEnd){
     
     
 
-    Iterator<int, int, FlatPage<int, int>> it(q);
+    Iterator<int, int, FlatPage<int, int>> it(q, 5, 25);
     EXPECT_FALSE(it.isEnd());
-    for(int i=0; i<30; i++){
+    for(int i=5; i<25; i++){
+        std::cout << **it << "," << std::endl;
         it++;
     }
+    EXPECT_FALSE(it.isEnd());
+    it++;
     EXPECT_TRUE(it.isEnd());
 }

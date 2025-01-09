@@ -7,6 +7,7 @@
 #include "Page.h"
 #include "TreePage.h"
 #include "FlatPage.h"
+#include "Iterator.h"
 
 
 
@@ -42,6 +43,34 @@ public:
 
     Value* get(Key key){
         return this->get(this->root, key);
+    }
+
+    Iterator<Key, Value, PageType> get(Key from, Key to){
+        std::vector<PageType*> q;
+        PageType* page = this->root;
+        std::vector<PageType*> stack;
+        stack.push_back(page);
+        while(!stack.empty()){
+            page = stack.back();
+            stack.pop_back();
+            if(page->isExternal() 
+            && (page->indexOf(from) > 0 
+                || page->indexOf(to) < page->count() //Fix this
+                )){
+                q.push_back(page);
+            } else {
+                for(int i=0; i<page->count(); i++){
+                    if(page->getKeyAt(i) >= from && page->getKeyAt(i) <= to){
+                        stack.push_back(page->getPageAt(i));
+                    }
+                }
+            }
+
+            
+        }
+
+        return Iterator<Key, Value, PageType>(q, from, to);
+
     }
 
     Value* get(Page<Key, Value>* page, Key key){

@@ -1,20 +1,27 @@
 #include "Page.h"
-#include <queue>
+#include <vector>
+#include <iostream>
 
-template <typename K, typename V, typename P> class Iterator {
+template <typename Key, typename Value, typename PageType> class Iterator {
 private:
-    std::deque<P*> pages;
-    typename std::deque<P*>::iterator pageIterator;
+    std::vector<PageType*> pages;
+    Key from;
+    Key to;
+    typename std::vector<PageType*>::iterator pageIterator;
     int index;
     
 public:
-    Iterator(const std::deque<P*>& pages){
+    Iterator(const std::vector<PageType*>& pages, Key from, Key to){
         this->pages = pages;
         this->pageIterator = this->pages.begin();
+        this->from = from;
+        this->to = to; 
+        this->index = pages.front()->getIndexOf(from);
     }
 
     bool isEnd(){
-        return this->pageIterator == pages.end();
+        Page<Key, Value>* page = *this->pageIterator;
+        return this->pageIterator == pages.end() || (*this->pageIterator == *pages.rbegin() && index > page->getIndexOf(to));
     }
 
     Iterator& operator++(){
@@ -29,6 +36,13 @@ public:
     }
     Iterator operator++(int){
         Iterator it = *this;
+
+        if(*this->pageIterator == *pages.rbegin()){
+            Page<Key, Value>* page = *this->pageIterator;
+            if(index <= page->getIndexOf(to) && index < page->count())
+                index++;
+            return it;
+        }
         if( this->pageIterator != pages.end() ){
             index++;
             if( index >= (*this->pageIterator)->count() ){
@@ -39,9 +53,9 @@ public:
         return it;
     }
 
-    V* operator*(){
+    Value* operator*(){
         if( this->pageIterator != pages.end() )
-            return (*this->pageIterator)->get(index);
+            return (*this->pageIterator)->getValueAt(index);
         else
             return NULL;
     }
