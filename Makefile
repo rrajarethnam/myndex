@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++11  -g
 LDFLAGS = -lgtest -lgtest_main -pthread
 TARGET = run_tests
-SRCS = test_iterator.cpp
+SRCS = test_iterator.cpp test_btree.cpp
 
 all: $(TARGET)
 

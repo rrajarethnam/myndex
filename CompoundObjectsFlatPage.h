@@ -147,7 +147,7 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
 
     }
 
-        void add(Key key, Page<Key, Value>* page){
+    void add(Key key, Page<Key, Value>* page){
         assert(!this->isExternal());
         //Find the index of the key
         int first = 0;

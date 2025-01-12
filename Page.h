@@ -7,6 +7,8 @@ public:
     virtual Value* getValue(Key key) = 0;
     virtual int getIndexOf(Key key) = 0;
     virtual Value* getValueAt(int index) = 0;
+    virtual Key getKeyAt(int index) = 0;
+    virtual Page* getPageAt(int index) = 0;
     virtual Key firstKey() = 0;
     virtual Key secondKey() = 0;
     virtual Page* firstPage() = 0;

@@ -38,6 +38,7 @@ TEST(Iterator, isEnd){
         it++;
     }
     EXPECT_FALSE(it.isEnd());
+    std::cout << **it << std::endl;
     it++;
     EXPECT_TRUE(it.isEnd());
 }

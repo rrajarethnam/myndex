@@ -45,19 +45,20 @@ public:
         return this->get(this->root, key);
     }
 
-    Iterator<Key, Value, PageType> get(Key from, Key to){
-        std::vector<PageType*> q;
-        PageType* page = this->root;
-        std::vector<PageType*> stack;
+    Iterator<Key, Value, Page<Key, Value>> get(Key from, Key to){
+        std::vector<Page<Key, Value>*> q;
+        Page<Key, Value>* page = this->root;
+        std::vector<Page<Key, Value>*> stack;
         stack.push_back(page);
         while(!stack.empty()){
             page = stack.back();
             stack.pop_back();
-            if(page->isExternal() 
-            && (page->indexOf(from) > 0 
-                || page->indexOf(to) < page->count() //Fix this
-                )){
-                q.push_back(page);
+            if(page->isExternal()){ 
+                int fromIndex = page->getIndexOf(from);
+                int toIndex = page->getIndexOf(to);
+                if(fromIndex >= 0 && fromIndex < page->count() && toIndex > 0 && toIndex <= page->count()){
+                    q.push_back(page);
+                }
             } else {
                 for(int i=0; i<page->count(); i++){
                     if(page->getKeyAt(i) >= from && page->getKeyAt(i) <= to){
@@ -69,7 +70,7 @@ public:
             
         }
 
-        return Iterator<Key, Value, PageType>(q, from, to);
+        return Iterator<Key, Value, Page<Key, Value>>(q, from, to);
 
     }
 

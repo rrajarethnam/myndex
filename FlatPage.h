@@ -181,6 +181,15 @@ public:
         return &this->values[index];
     }
 
+    Key getKeyAt(int index){
+        return this->keys[index];
+    }
+
+    Page<Key, Value>* getPageAt(int index){
+        assert(!this->isExternal());
+        return this->pages[index];
+    }
+
     void add(Key key, Value value){
         assert(this->isExternal());
         //Find the index of the key
