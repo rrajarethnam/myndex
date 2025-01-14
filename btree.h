@@ -45,33 +45,34 @@ public:
         return this->get(this->root, key);
     }
 
+    void get(Page<Key, Value>* page, Key from, Key to, std::vector<Page<Key, Value>*>& pages){
+        int fromIndex = page->getIndexOf(from);
+        int toIndex = page->getIndexOf(to);
+        if(!page->isExternal()){
+            int begin = 0;
+            if(fromIndex >= 0 && fromIndex < page->count()){
+                begin = fromIndex;
+            }
+            int end = page->count()-1;
+            if(toIndex >= 0 && toIndex < page->count()){
+                end = toIndex;
+            }
+            for(int i=begin; i<=end; i++){
+                this->get(page->getPageAt(i), from, to, pages);
+            }
+        } else {
+            if((fromIndex >= 0 && fromIndex < page->count())
+            || (fromIndex < 0 && toIndex >= page->count()) 
+            || (toIndex >= 0 && toIndex < page->count())){
+                pages.push_back(page);
+            }            
+        }
+    }
+    
     Iterator<Key, Value, Page<Key, Value>> get(Key from, Key to){
         std::vector<Page<Key, Value>*> q;
-        Page<Key, Value>* page = this->root;
-        std::vector<Page<Key, Value>*> stack;
-        stack.push_back(page);
-        while(!stack.empty()){
-            page = stack.back();
-            stack.pop_back();
-            if(page->isExternal()){ 
-                int fromIndex = page->getIndexOf(from);
-                int toIndex = page->getIndexOf(to);
-                if(fromIndex >= 0 && fromIndex < page->count() && toIndex > 0 && toIndex <= page->count()){
-                    q.push_back(page);
-                }
-            } else {
-                for(int i=0; i<page->count(); i++){
-                    if(page->getKeyAt(i) >= from && page->getKeyAt(i) <= to){
-                        stack.push_back(page->getPageAt(i));
-                    }
-                }
-            }
-
-            
-        }
-
+        this->get(this->root, from, to, q);
         return Iterator<Key, Value, Page<Key, Value>>(q, from, to);
-
     }
 
     Value* get(Page<Key, Value>* page, Key key){

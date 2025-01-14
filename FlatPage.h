@@ -407,6 +407,10 @@ public:
         return this->keys[0];
     }
 
+    Key lastKey(){
+        return this->keys[this->size - 1];
+    }
+
     Key secondKey(){
         return this->keys[1];
     }

@@ -11,7 +11,7 @@ std::string get(Btree<std::string, std::string, CompoundObjectsFlatPage<std::str
 
 int main(int argc, char* argv[]){
 	int begin = 1;
-	int end = 10000;
+	int end = 100000;
 
 	if(argc > 1)
 		end = atoi(argv[1]);
@@ -20,7 +20,7 @@ int main(int argc, char* argv[]){
 
 	std::cout << "Random insertions and deletions test" << std::endl;
 	int* randoms = new int[end];
-	Btree<std::string, std::string, CompoundObjectsFlatPage<std::string, std::string>> btree(4000, std::string(), std::string());
+	Btree<std::string, std::string, CompoundObjectsFlatPage<std::string, std::string>> btree(256, std::string(), std::string());
 
 	for(int i=0; i<end; i++){
 		do {
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]){
 
 	std::cout << "Height:" << btree1.get_height() << std::endl;
 
-	Iterator<std::string, std::string, Page<std::string, std::string>> it = btree.get("100", "200");	
+	Iterator<std::string, std::string, Page<std::string, std::string>> it = btree.get("1000", "2000");	
 	while(!it.isEnd()){
 		std::cout << **it << std::endl;
 		it++;

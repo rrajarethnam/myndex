@@ -10,6 +10,7 @@ public:
     virtual Key getKeyAt(int index) = 0;
     virtual Page* getPageAt(int index) = 0;
     virtual Key firstKey() = 0;
+    virtual Key lastKey() = 0;
     virtual Key secondKey() = 0;
     virtual Page* firstPage() = 0;
     virtual Page* lastPage() = 0;
