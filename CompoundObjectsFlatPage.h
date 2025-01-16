@@ -33,7 +33,7 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
         }
     }
 
-    void open(const std::string& filename){
+    void open(const std::string& filename, bool fullLoad=true){
         this->bottom = false;
         std::ifstream file;
         file.open(filename + ".idx");
@@ -67,8 +67,10 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
             }
         } else {
             this->pages = new Page<Key, Value>*[2*this->order];
+            this->loaded = new bool[2*this->order];
             for(int i=0; i<this->size; i++){
                 this->pages[i] = new CompoundObjectsFlatPage<Key, Value>(filename + "_" + std::to_string(i), this->order);
+                this->loaded[i] = true;
             }
         }
     }

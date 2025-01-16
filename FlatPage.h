@@ -64,7 +64,7 @@ public:
         }
     }
 
-    virtual void open(const std::string& filename){
+    virtual void open(const std::string& filename, bool fullLoad=true){
         this->bottom = false;
         std::ifstream file;
         file.open(filename + ".idx");
@@ -93,8 +93,10 @@ public:
             file.read((char*)this->values, this->size * sizeof(Value));
         } else {
             this->pages = new Page<Key, Value>*[2*this->order];
+            this->loaded = new bool[2*this->order];
             for(int i=0; i<this->size; i++){
                 this->pages[i] = new FlatPage(filename + "_" + std::to_string(i), this->order);
+                this->loaded[i] = true;
             }
         }
     }

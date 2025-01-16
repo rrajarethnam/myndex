@@ -32,7 +32,7 @@ public:
     virtual void detach() = 0;
 
     virtual void save(const std::string& filename) = 0;
-    virtual void open(const std::string& filename) = 0;
+    virtual void open(const std::string& filename, bool fullLoad=true) = 0;
     virtual ~Page() {};
 };
 
