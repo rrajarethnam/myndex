@@ -64,6 +64,7 @@ TEST_F(CompoundObjectsFlatPageTest, SaveAndOpen) {
     root->save();
 
     CompoundObjectsFlatPage<std::string, std::string> loadedPage(root->getId(), 4);
+    loadedPage.open();
     EXPECT_EQ(loadedPage.count(), 2);
     EXPECT_EQ(loadedPage.firstKey(), "key1");
     EXPECT_EQ(loadedPage.lastKey(), "key4");

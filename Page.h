@@ -33,7 +33,7 @@ public:
     virtual void detach() = 0;
 
     virtual void save() = 0;
-    virtual void open(bool fullLoad=true) = 0;
+    virtual void open(bool reload=false) = 0;
     virtual ~Page() {};
 };
 

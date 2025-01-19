@@ -21,10 +21,8 @@ protected:
     unsigned int order;
     bool bottom;
     bool dirty;
-    bool *loaded;
+    bool is_open;
     std::string filename;
-    std::string* child_filenames;
-    //friend class Btree<Key, Value, PageType>;
     static const char RECORD_SEPARATOR = 30;
     std::string id;
 
@@ -38,12 +36,12 @@ public:
         this->keys = NULL;
         this->values = NULL;
         this->pages = NULL;
-        this->loaded = NULL;
     }
 
     FlatPage(const std::string& id, int order){
         this->id = id;
         this->order = order;
+        this->is_open = false;
         this->open();
     }
 
@@ -65,10 +63,10 @@ public:
         this->keys = new Key[2*order];
         if(!bottom){
             this->pages = new Page<Key, Value>*[2*order];
-            this->loaded = new bool[2*order];
         } else {
             this->values = new Value[2*order];
         }
+        this->is_open = true;
     }
 
     void save(){
@@ -96,7 +94,9 @@ public:
         metafile.close();
     }
 
-    virtual void open(bool fullLoad=true){
+    virtual void open(bool reload=false){
+        if(this->is_open && !reload)
+            return;
         this->filename = this->id;
         this->bottom = false;
         std::ifstream file;
@@ -129,17 +129,20 @@ public:
             file.read((char*)this->values, this->size * sizeof(Value));
         } else {
             this->pages = new Page<Key, Value>*[2*this->order];
-            this->loaded = new bool[2*this->order];
             for(int i=0; i<this->size; i++){
                 std::string page_str;
                 getline(metafile, page_str, FlatPage<Key, Value>::RECORD_SEPARATOR);
                 this->pages[i] = new FlatPage(page_str, this->order);
-                this->loaded[i] = true;
             }
         }
+        this->is_open = true;
     }
 
     void print(){
+        if (this->is_open == false){
+            std::cout << this->id << "::<passive>" << std::endl;
+            return;
+        }
         if(this->bottom){
             std::cout << "{";
             for(int i=0; i<this->size; i++){
@@ -160,6 +163,10 @@ public:
     }
 
     void printKeys(){
+        if (this->is_open == false){
+            std::cout << this->id << "::<passive>" << std::endl;
+            return;
+        }
         if(this->bottom){
             std::cout << "{";
             for(int i=0; i<this->size; i++){
@@ -177,11 +184,13 @@ public:
     }
 
     bool isExternal(){
+        this->open();
         return this->bottom;
     }
 
     Value* getValue(Key key){
         assert(this->isExternal());
+        this->open();
         int first = 0;
         int last = this->size - 1;
         while(first <= last){
@@ -199,6 +208,7 @@ public:
     }
 
     int getIndexOf(Key key){
+        this->open();
         int first = 0;
         int last = this->size - 1;
         int mid = first;
@@ -218,20 +228,24 @@ public:
 
     Value* getValueAt(int index){
         assert(this->isExternal());
+        this->open();
         return &this->values[index];
     }
 
     Key getKeyAt(int index){
+        this->open();
         return this->keys[index];
     }
 
     Page<Key, Value>* getPageAt(int index){
-        assert(!this->isExternal());
+        assert(!this->bottom);
+        this->open();
         return this->pages[index];
     }
 
     void add(Key key, Value value){
-        assert(this->isExternal());
+        assert(this->bottom);
+        this->open();
         //Find the index of the key
         int first = 0;
         int last = this->size - 1;
@@ -261,6 +275,7 @@ public:
 
     void add(Key key, Page<Key, Value>* page){
         assert(!this->isExternal());
+        this->open();
         //Find the index of the key
         int first = 0;
         int last = this->size - 1;
@@ -288,6 +303,7 @@ public:
     }
 
     Page<Key, Value>* next(Key key){
+        this->open();
         if (this->bottom) {
             return NULL;
         }
@@ -312,6 +328,7 @@ public:
     }
 
     FlatPage* split(){
+        this->open();
         FlatPage* page = new FlatPage(this->order, this->bottom);
         int half = this->size / 2 + (this->size % 2);
         int otherHalf = this->size - half;
@@ -331,6 +348,7 @@ public:
     }
 
     Page<Key, Value>* nextPageOf(Page<Key, Value>* page) {
+        this->open();
         assert(!this->bottom);
         Key key = page->firstKey();
         int first = 0;
@@ -351,6 +369,7 @@ public:
     }
 
     Page<Key, Value>* prevPageOf(Page<Key, Value>* page) {
+        this->open();
         assert(!this->bottom);
         Key key = page->firstKey();
         int first = 0;
@@ -371,10 +390,12 @@ public:
     }
 
     unsigned int count(){
+        this->open();
         return this->size;
     }
 
     Page<Key, Value>* merge(Page<Key, Value>* page) {
+        this->open();
         FlatPage* flatPage = (FlatPage*)page;
         if (this->bottom) {
             memcpy(this->keys + this->size, flatPage->keys, flatPage->size * sizeof(Key));
@@ -394,6 +415,7 @@ public:
     }
 
     void remove(Key key){
+        this->open();
         if (this->bottom) {
             int first = 0;
             int last = this->size - 1;
@@ -435,6 +457,7 @@ public:
     }
 
     void replaceKey(Key oldKey, Key newKey){
+        this->open();
         int first = 0;
         int last = this->size - 1;
         while(first <= last){
@@ -454,26 +477,32 @@ public:
 
 
     Key firstKey(){
+        this->open();
         return this->keys[0];
     }
 
     Key lastKey(){
+        this->open();
         return this->keys[this->size - 1];
     }
 
     Key secondKey(){
+        this->open();
         return this->keys[1];
     }
 
     Page<Key, Value>* firstPage(){
+        this->open();
         return this->pages[0];
     }
 
     Page<Key, Value>* lastPage(){
+        this->open();
         return this->pages[this->size - 1];
     }
 
     bool isFull(){
+        this->open();
         return this->size >= this->order;
     }
 

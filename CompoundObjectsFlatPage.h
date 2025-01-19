@@ -10,7 +10,7 @@ public:
     CompoundObjectsFlatPage(const std::string& id, int order){
         this->id = id;
         this->order = order;
-        this->open();
+        this->is_open =false;
     }
     void save(){
         if(this->dirty == false){
@@ -44,7 +44,9 @@ public:
         }
     }
 
-    void open(bool fullLoad=true){
+    void open(bool reload=false){
+        if(this->is_open && !reload)
+            return;
         this->filename = this->getId();
         this->bottom = false;
         std::ifstream file;
@@ -66,7 +68,6 @@ public:
         getline(file, size_str);
         this->size = std::stoi(size_str);
 
-        this->loaded = new bool[2*this->order];
         this->keys = new Key[2*this->order];
         for(int i=0; i<this->size; i++){
             std::string key_str;
@@ -86,12 +87,16 @@ public:
                 std::string page_str;
                 getline(metafile, page_str, FlatPage<Key, Value>::RECORD_SEPARATOR);
                 this->pages[i] = new CompoundObjectsFlatPage<Key, Value>(page_str, this->order);
-                this->loaded[i] = true;
             }
         }
+        this->is_open = true;
     }
 
     void print(){
+        if (this->is_open == false){
+            std::cout << this->id << "::<passive>" << std::endl;
+            return;
+        }
         if(this->bottom){
             std::cout << "{";
             for(int i=0; i<this->size; i++){
@@ -112,6 +117,8 @@ public:
     }
 
     CompoundObjectsFlatPage* split(){
+        this->open();
+
         CompoundObjectsFlatPage* page = new CompoundObjectsFlatPage(this->order, this->bottom);
         int half = this->size / 2 + (this->size % 2);
         int otherHalf = this->size - half;
@@ -137,6 +144,8 @@ public:
 
     void add(Key key, Value value){
         assert(this->isExternal());
+        this->open();
+
         //Find the index of the key
         int first = 0;
         int last = this->size - 1;
@@ -171,6 +180,8 @@ public:
 
     void add(Key key, Page<Key, Value>* page){
         assert(!this->isExternal());
+        this->open();
+
         //Find the index of the key
         int first = 0;
         int last = this->size - 1;
@@ -201,6 +212,8 @@ public:
     }
     
     Page<Key, Value>* merge(Page<Key, Value>* page) {
+        this->open();
+
         CompoundObjectsFlatPage* flatPage = (CompoundObjectsFlatPage*)page;
         for(int i=0; i<flatPage->size; i++){
             this->keys[this->size + i] = flatPage->keys[i];
@@ -226,6 +239,8 @@ public:
     }
 
     void remove(Key key){
+        this->open();
+
         if (this->bottom) {
             int first = 0;
             int last = this->size - 1;
@@ -271,6 +286,4 @@ public:
         }
         this->dirty = true;
     }
-
-
 };
