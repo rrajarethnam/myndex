@@ -4,12 +4,15 @@
 #include <cstring>
 #include <cassert>
 #include <iostream>
-
+#include <random>
+#include <chrono>
+#include <string>
 
 #include "Page.h"
 
 template<class Key, class Value> class FlatPage : public Page<Key, Value>{
 protected:
+
     Key* keys;
     Value* values;
     Page<Key, Value>** pages;
@@ -17,9 +20,18 @@ protected:
     unsigned int size;
     unsigned int order;
     bool bottom;
+    bool dirty;
     bool *loaded;
+    std::string filename;
+    std::string* child_filenames;
     //friend class Btree<Key, Value, PageType>;
+    static const char RECORD_SEPARATOR = 30;
+    std::string id;
+
 public:
+    std::string getId() const{
+        return this->id;
+    }
 
     FlatPage(){
         this->size = 0;
@@ -28,29 +40,46 @@ public:
         this->pages = NULL;
         this->loaded = NULL;
     }
-    FlatPage(const std::string& filename, int order){
+
+    FlatPage(const std::string& id, int order){
+        this->id = id;
         this->order = order;
-        this->open(filename);
+        this->open();
+    }
+
+    void generateId(){
+        auto now = std::chrono::system_clock::now().time_since_epoch().count();
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(1, 1000000);
+        this->id = std::to_string(now) + "_" + std::to_string(dis(gen));
     }
 
     FlatPage(int order, bool bottom){
+        //generate a unique id
+        generateId();
+
         this->order = order;
         this->bottom = bottom;
         this->size = 0;
         this->keys = new Key[2*order];
         if(!bottom){
             this->pages = new Page<Key, Value>*[2*order];
+            this->loaded = new bool[2*order];
         } else {
             this->values = new Value[2*order];
         }
     }
 
-    void save(const std::string& filename){
+    void save(){
+        this->filename = this->id;
         std::ofstream file;
+        std::ofstream metafile;
         if(this->bottom){
             file.open(filename + ".values.idx");
         } else {
             file.open(filename + ".idx");
+            metafile.open(filename + ".meta.idx");
         }
         file.write((char*)&this->size, sizeof(this->size));
         //copy using memcopy
@@ -59,14 +88,19 @@ public:
             file.write((char*)this->values, this->size * sizeof(Value));
         } else {
             for(int i=0; i<this->size; i++){
-                this->pages[i]->save(filename + "_" + std::to_string(i));
+                this->pages[i]->save();
+                metafile << this->pages[i]->getId() << RECORD_SEPARATOR;
             }
         }
+        file.close();
+        metafile.close();
     }
 
-    virtual void open(const std::string& filename, bool fullLoad=true){
+    virtual void open(bool fullLoad=true){
+        this->filename = this->id;
         this->bottom = false;
         std::ifstream file;
+        std::ifstream metafile;
         file.open(filename + ".idx");
         if(!file.is_open()){
             file.close();
@@ -76,6 +110,8 @@ public:
                 std::cout << "Error: File not found" << std::endl;
                 assert(false);
             }
+        } else {
+            metafile.open(filename + ".meta.idx");
         }
 
         file.read((char*)&this->size, sizeof(this->size));
@@ -95,7 +131,9 @@ public:
             this->pages = new Page<Key, Value>*[2*this->order];
             this->loaded = new bool[2*this->order];
             for(int i=0; i<this->size; i++){
-                this->pages[i] = new FlatPage(filename + "_" + std::to_string(i), this->order);
+                std::string page_str;
+                getline(metafile, page_str, FlatPage<Key, Value>::RECORD_SEPARATOR);
+                this->pages[i] = new FlatPage(page_str, this->order);
                 this->loaded[i] = true;
             }
         }
@@ -218,6 +256,7 @@ public:
         this->values[first] = value;
         this->size++;
 
+        this->dirty = true;
     }
 
     void add(Key key, Page<Key, Value>* page){
@@ -244,6 +283,8 @@ public:
         this->keys[first] = key;
         this->pages[first] = page;
         this->size++;
+        
+        this->dirty = true;
     }
 
     Page<Key, Value>* next(Key key){
@@ -282,6 +323,9 @@ public:
         } else {
             memcpy(page->pages, this->pages + half, half * sizeof(FlatPage*));
         }
+
+        this->dirty = true;
+        page->dirty = true;
 
         return page;
     }
@@ -343,6 +387,8 @@ public:
         }
 
         flatPage->detach();
+
+        this->dirty = true;
         
         return this;
     }
@@ -384,6 +430,8 @@ public:
                 }
             }
         }
+
+        this->dirty = true;
     }
 
     void replaceKey(Key oldKey, Key newKey){
@@ -401,7 +449,7 @@ public:
                 last = mid - 1;
             }
         }
-
+        dirty = true;
     }
 
 
@@ -452,3 +500,4 @@ public:
     }
 
 };
+

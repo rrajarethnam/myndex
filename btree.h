@@ -31,14 +31,16 @@ public:
     Btree(std::string name){
         this->memoryOnly = false;
         std::ifstream file;
-        file.open(name + ".idx.meta");
+        std::string rootId;
+        file.open(name + ".meta.idx");
         file >> this->order;
         file >> this->height;
         file >> this->n;
+        file >> rootId;
         file.close();
 
-        this->root = new PageType(this->order, true);
-        this->root->open(name);
+        this->root = new PageType(rootId, this->order);
+        this->root->open();
     }
 
     Value* get(Key key){
@@ -170,13 +172,14 @@ public:
 
     void save(std::string name){
         std::ofstream file;
-        file.open(name + ".idx.meta");
+        file.open(name + ".meta.idx");
         file << this->order << std::endl;
         file << this->height << std::endl;
         file << this->n << std::endl;
+        file << this->root->getId() << std::endl;
         file.close();
 
-        this->root->save(name);
+        this->root->save();
     }
 
     unsigned int count(){

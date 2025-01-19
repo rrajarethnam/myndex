@@ -1,75 +1,91 @@
 #include "FlatPage.h"
 
+
+
 template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage<Key, Value>{
-
-    public:
-    CompoundObjectsFlatPage(int order, bool bottom):FlatPage<Key, Value>(order, bottom){}
-
-    CompoundObjectsFlatPage(const std::string& filename, int order){
-        this->order = order;
-        this->open(filename);
+public:
+    CompoundObjectsFlatPage(int order, bool bottom):FlatPage<Key, Value>(order, bottom){
     }
-    void save(const std::string& filename){
-        std::ofstream file;
-        if(this->bottom){
-            file.open(filename + ".values.idx");
-        } else {
-            file.open(filename + ".idx");
+
+    CompoundObjectsFlatPage(const std::string& id, int order){
+        this->id = id;
+        this->order = order;
+        this->open();
+    }
+    void save(){
+        if(this->dirty == false){
+            return;
         }
-        char record_separator = 30;
+        this->filename = this->getId();
+
+        std::ofstream file;
+        std::ofstream metafile;
+        if(this->bottom){
+            file.open(this->filename + ".values.idx");
+        } else {
+            file.open(this->filename + ".idx");
+            metafile.open(this->filename + ".meta.idx");
+        }
+
         file << this->size <<  std::endl;
         //copy iteratively
         for(int i=0; i<this->size; i++){
-            file << this->keys[i] << record_separator;
+            file << this->keys[i] << FlatPage<Key, Value>::RECORD_SEPARATOR;
         }
         if(this->bottom){
             for(int i=0; i<this->size; i++){
-                file << this->values[i] << record_separator;
+                file << this->values[i] << FlatPage<Key, Value>::RECORD_SEPARATOR;
             }
         } else {
             for(int i=0; i<this->size; i++){
-                this->pages[i]->save(filename + "_" + std::to_string(i));
+                this->pages[i]->save();
+                metafile << this->pages[i]->getId() << FlatPage<Key, Value>::RECORD_SEPARATOR;
             }
         }
     }
 
-    void open(const std::string& filename, bool fullLoad=true){
+    void open(bool fullLoad=true){
+        this->filename = this->getId();
         this->bottom = false;
         std::ifstream file;
-        file.open(filename + ".idx");
+        std::ifstream metafile;
+        file.open(this->filename + ".idx");
         if(!file.is_open()){
             file.close();
-            file.open(filename + ".values.idx");
+            file.open(this->filename + ".values.idx");
             this->bottom = true;
             if(!file.is_open()){
                 std::cout << "Error: File not found" << std::endl;
                 assert(false);
             }    
+        } else {
+            metafile.open(this->filename + ".meta.idx");
         }
         
         std::string size_str;
         getline(file, size_str);
         this->size = std::stoi(size_str);
-        char record_separator = 30;
 
+        this->loaded = new bool[2*this->order];
         this->keys = new Key[2*this->order];
         for(int i=0; i<this->size; i++){
             std::string key_str;
-            getline(file, key_str, record_separator);
+            getline(file, key_str, FlatPage<Key, Value>::RECORD_SEPARATOR);
             this->keys[i] = key_str;
         }
         if(this->bottom){
             this->values = new Value[2*this->order];
             for(int i=0; i<this->size; i++){
                 std::string value_str;
-                getline(file, value_str, record_separator);
+                getline(file, value_str, FlatPage<Key, Value>::RECORD_SEPARATOR);
                 this->values[i] = value_str;
             }
         } else {
             this->pages = new Page<Key, Value>*[2*this->order];
-            this->loaded = new bool[2*this->order];
             for(int i=0; i<this->size; i++){
-                this->pages[i] = new CompoundObjectsFlatPage<Key, Value>(filename + "_" + std::to_string(i), this->order);
+                std::string page_str;
+                getline(metafile, page_str, FlatPage<Key, Value>::RECORD_SEPARATOR);
+                this->pages[i] = new CompoundObjectsFlatPage<Key, Value>(page_str, this->order);
                 this->loaded[i] = true;
             }
         }
@@ -113,6 +129,8 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
         } else {
             memcpy(page->pages, this->pages + half, half * sizeof(CompoundObjectsFlatPage*));
         }
+        this->dirty = true;
+        page->dirty = true;
 
         return page;
     }
@@ -147,6 +165,8 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
         this->values[first] = value;
         this->size++;
 
+        this->dirty = true;
+
     }
 
     void add(Key key, Page<Key, Value>* page){
@@ -176,6 +196,8 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
         this->keys[first] = key;
         this->pages[first] = page;
         this->size++;
+
+        this->dirty = true;
     }
     
     Page<Key, Value>* merge(Page<Key, Value>* page) {
@@ -197,6 +219,8 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
         }
 
         flatPage->detach();
+
+        this->dirty = true;
         
         return this;
     }
@@ -245,6 +269,7 @@ template<class Key, class Value> class CompoundObjectsFlatPage : public FlatPage
                 }
             }
         }
+        this->dirty = true;
     }
 
 

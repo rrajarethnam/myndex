@@ -4,6 +4,7 @@
 //Interface for Btree pages
 template<class Key, class Value> class Page{
 public:
+    virtual std::string getId() const = 0;
     virtual Value* getValue(Key key) = 0;
     virtual int getIndexOf(Key key) = 0;
     virtual Value* getValueAt(int index) = 0;
@@ -16,23 +17,25 @@ public:
     virtual Page* lastPage() = 0;
     virtual Page* nextPageOf(Page* page) = 0;
     virtual Page* prevPageOf(Page* page) = 0;
+    virtual bool isExternal() = 0;
+    virtual bool isFull() = 0;
+    virtual Page* next(Key key) = 0;
+    virtual void printKeys() = 0;
+    virtual void print() = 0;
+    virtual unsigned int count() = 0;
 
     virtual void add(Key key, Value value) = 0;
     virtual void add(Key key, Page* page) = 0;
-    virtual bool isExternal() = 0;
-    virtual Page* next(Key key) = 0;
-    virtual bool isFull() = 0;
     virtual Page* split() = 0;
     virtual Page* merge(Page* page) = 0;
     virtual void remove(Key key) = 0;
     virtual void replaceKey(Key oldKey, Key newKey) = 0;
-    virtual void printKeys() = 0;
-    virtual void print() = 0;
-    virtual unsigned int count() = 0;
     virtual void detach() = 0;
 
-    virtual void save(const std::string& filename) = 0;
-    virtual void open(const std::string& filename, bool fullLoad=true) = 0;
+    virtual void save() = 0;
+    virtual void open(bool fullLoad=true) = 0;
     virtual ~Page() {};
 };
+
+#define SAVE if(this->filename != "") this->save(this->filename);
 
