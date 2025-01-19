@@ -42,7 +42,6 @@ public:
         this->id = id;
         this->order = order;
         this->is_open = false;
-        this->open();
     }
 
     void generateId(){
