@@ -222,7 +222,10 @@ public:
                 last = mid - 1;
             }
         }
-        return mid;
+        if(this->keys[mid] < key)
+            return mid;
+        else
+            return mid-1;
     }
 
     Value* getValueAt(int index){

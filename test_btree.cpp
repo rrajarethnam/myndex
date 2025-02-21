@@ -14,6 +14,8 @@ protected:
         btree->put("3", "three");
         btree->put("4", "four");
         btree->put("5", "five");
+        btree->put("6", "six");
+        btree->put("7", "seven");
     }
 
     void TearDown() override {
