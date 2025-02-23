@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <iostream>
+#include <fstream>
 
 //Interface for Btree pages
 template<class Key, class Value> class Page{
@@ -22,6 +24,25 @@ public:
     virtual Page* next(Key key) = 0;
     virtual void printKeys() = 0;
     virtual void print() = 0;
+    virtual void draw(std::ofstream &file) {
+        this->open();
+        file << "node" << this << " [shape=record, label=\"{";
+        for(int i=0; i<this->count(); i++){
+            file << "<f" << i << "> " << this->getKeyAt(i);
+            if(i < this->count() - 1){
+                file << " | ";
+            }
+        }
+        file << "}\"];" << std::endl;
+        
+        if (!this->isExternal()) {
+            for(int i=0; i<this->count(); i++){
+                file << "node" << this << ":f" << i << " -> node" << this->getPageAt(i) << ";" << std::endl;
+                this->getPageAt(i)->draw(file);
+            }
+        }
+    }
+
     virtual unsigned int count() = 0;
 
     virtual void add(Key key, Value value) = 0;

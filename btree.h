@@ -195,6 +195,14 @@ public:
         std::cout << std::endl;
     }
 
+    virtual void draw(){
+        std::ofstream file;
+        file.open("btree.dot");
+        file << "digraph G {" << std::endl;
+        this->root->draw(file);
+        file << "}" << std::endl;
+    }
+
 
     ~Btree(){
         //Delete the root page
