@@ -1,51 +1,51 @@
+#include <gtest/gtest.h>
 #include "btree.h"
-#include <cassert>
-#include <limits>
-#include <iostream>
+#include "Iterator.h"
+#include "CompoundObjectsFlatPage.h"
 
-int main(int argc, char* argv[]){
-	int begin = 1;
-	int end = 100;
+// Define a fixture class for the B-tree tests
+class BtreeTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // Set up the B-tree with some initial data
+        btree = new Btree<std::string, std::string, CompoundObjectsFlatPage<std::string, std::string>>(4, "", "", true);
+        btree->put("1", "one");
+        btree->put("2", "two");
+        btree->put("3", "three");
+        btree->put("4", "four");
+        btree->put("5", "five");
+        btree->put("6", "six");
+        btree->put("7", "seven");
+    }
 
-	if(argc > 1)
-		end = atoi(argv[1]);
+    void TearDown() override {
+        delete btree;
+    }
 
+    Btree<std::string, std::string, CompoundObjectsFlatPage<std::string, std::string>>* btree;
+};
 
+// Test case for the get method
+TEST_F(BtreeTest, GetRange) {
+    Iterator<std::string, std::string, Page<std::string, std::string>> it = btree->get("2", "4");
 
-	std::cout << "Random insertions and deletions test" << std::endl;
-	int* randoms = new int[end];
-	Btree<int, int> btree(4000, std::numeric_limits<int>::min(), std::numeric_limits<int>::min());
+    std::vector<std::pair<std::string, std::string>> expected = {
+        {"2", "two"},
+        {"3", "three"},
+        {"4", "four"}
+    };
+    //std::cout << **it << std::endl;
 
-	for(int i=0; i<end; i++){
-		do {
-			randoms[i] = rand() % end;
-			//std::cout << randoms[i] << std::endl;
-		} while(btree.get(randoms[i]) != NULL);
+    for (const auto& pair : expected) {
+        //ASSERT_FALSE(it.isEnd());
+        EXPECT_EQ(**it, pair.second);
+        ++it;
+    }
 
-		//std::cout << "Inserting:" << randoms[i] << " at" << i << std::endl;
-		btree.put(randoms[i], randoms[i]);
-	}
+    ASSERT_TRUE(it.isEnd());
+}
 
-	std::cout<< "test input generated" << std::endl;
-	std::cout << "Height:" << btree.get_height() << std::endl;
-	btree.save("btree");
-	Btree<int, int> btree1("btree");
-	//btree.print();
-	std::cout << "Height:" << btree1.get_height() << std::endl;
-	//btree1.print();
-	std::cout << "Saved" << std::endl;
-	std::cout << "Testing get and delete" << std::endl;
-	//btree.print();
-	for(int i=(end-1); i>=0; i--){
-		assert(*btree1.get(randoms[i]) == randoms[i]);
-		btree1.deleteKey(randoms[i]);
-		//std::cout << "Deleted :" << randoms[i] << std::endl;
-		//btree.print();
-	}
-	
-	std::cout << "Deletions complete!"<< std::endl;
-
-	std::cout << "Height:" << btree.get_height() << std::endl;
-	std::cout << "Test Passed" << std::endl;
-
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
